@@ -7,7 +7,7 @@ If you have any questions, please email szhao2@albany.edu
 
 ## TAMKOT Network Architecture:
 
-![tamkot](model_with_layername.pdf)
+![tamkot](model_with_layername.png)
 
 
 ## Prerequisit
