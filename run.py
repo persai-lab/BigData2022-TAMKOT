@@ -7,7 +7,7 @@ def single_exp(config):
     config = EasyDict(config)
     print(config)
 
-    data = pickle.load(open('data/{}/train_val_test_{}.pkl'.format(config.data_name, config.fold), 'rb'))
+    data = pickle.load(open('data/{}/train_test_{}.pkl'.format(config.data_name, config.fold), 'rb'))
 
     config.num_items = data['num_items_Q']
     config.num_nongradable_items = data['num_items_L']
