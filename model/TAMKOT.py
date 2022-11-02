@@ -4,7 +4,7 @@ import torch.nn as nn
 
 class TAMKOT(nn.Module):
     '''
-    Multiview Deep knowledge tracing model
+    Transition-Aware Multi-Activity Knowledge Tracing (TAMKOT)
     '''
     def __init__(self, config):
         super(TAMKOT, self).__init__()
@@ -46,7 +46,7 @@ class TAMKOT(nn.Module):
                                            embedding_dim=self.embeding_size_l,
                                            padding_idx=0)
 
-        # initialize the layers
+        # initialize the knowledge transfer layers
         self.W_iQ = nn.Linear(self.embeding_size_q + self.embeding_size_a, self.hidden_size, bias=True)
         self.W_iL = nn.Linear(self.embeding_size_l, self.hidden_size, bias=True)
 
@@ -107,7 +107,7 @@ class TAMKOT(nn.Module):
         '''
 
         batch_size, seq_len = q_data.size(0), q_data.size(1)
-        # inintial h0 and m0
+        # inintialize h0 and m0
         h = torch.zeros(batch_size, self.hidden_size).to(self.device)
         m = torch.zeros(batch_size, self.hidden_size).to(self.device)
 
@@ -120,7 +120,8 @@ class TAMKOT(nn.Module):
             a_embed = self.a_embed_matrix(a_data)
         l_embed = self.l_embed_matrix(l_data)
 
-        # split the data seq into chunk and process each question sequentially, and get embeddings of each learning materia
+        # split the data seq into chunk and process each question sequentially, and get embeddings of each learning
+        # materia
         sliced_q_embed = torch.chunk(q_embed, seq_len, dim=1)
         sliced_a_embed = torch.chunk(a_embed, seq_len, dim=1)
         sliced_l_embed = torch.chunk(l_embed, seq_len, dim=1)

@@ -20,20 +20,22 @@ class trainer(object):
 
         self.mode = config.mode
         self.manual_seed = config.seed
-        self.device = torch.device("cpu")
 
-
+        # initialize the data_loader, which include preprocessing the data
         self.data_loader = TAMKOT_DataLoader(config, data)
 
 
         self.current_epoch = 1
         self.current_iteration = 1
 
+        # if student performance is binary correctness, AUC the larger the better.
+        # if student performance is numerical grade, rmse the small the better
         if self.metric == "rmse":
             self.best_val_perf = 1.
         elif self.metric == "auc":
             self.best_val_perf = 0.
 
+        # create empty list to store losses and testing evaluation metrics of each epoch
         self.train_loss_list = []
         self.train_loss_l_list = []
         self.test_loss_list = []
@@ -41,8 +43,10 @@ class trainer(object):
         self.test_pr_auc_list = []
         self.test_rmse_list = []
 
+        # build models
         self.model = TAMKOT(config)
 
+        # define criterion
         self.criterion = nn.BCELoss(reduction='sum')
         if config.optimizer == "sgd":
             self.optimizer = torch.optim.SGD(self.model.parameters(),
@@ -67,9 +71,11 @@ class trainer(object):
             verbose=True
         )
 
+        # set cuda flag
         self.is_cuda = torch.cuda.is_available()
         if self.is_cuda and not self.config.cuda:
             self.logger.info("WARNING: You have a CUDA device, so you should probably enable CUDA")
+            print("WARNING: You have a CUDA device, so you should probably enable CUDA")
 
         self.cuda = self.is_cuda & self.config.cuda
 
@@ -81,23 +87,32 @@ class trainer(object):
             self.criterion = self.criterion.to(self.device)
 
             self.logger.info("Program will run on *****GPU-CUDA***** ")
+            print("Program will run on *****GPU-CUDA***** ")
         else:
             self.device = torch.device("cpu")
             torch.manual_seed(self.manual_seed)
             self.logger.info("Program will run on *****CPU*****\n")
+            print("Program will run on *****CPU*****\n")
 
 
     def train(self):
-
+        """
+        Main training loop
+        :return:
+        """
         for epoch in range(1, self.config.max_epoch + 1):
             print("="*50 + "Epoch {}".format(epoch) + "="*50)
             self.train_one_epoch()
-            self.validate()
+            self.validate()  # perform validation or testing
             self.current_epoch += 1
 
 
 
     def train_one_epoch(self):
+        """
+        One epoch of training
+        :return:
+        """
         self.model.train()
         self.logger.info("\n")
         self.logger.info("Train Epoch: {}".format(self.current_epoch))
@@ -115,18 +130,19 @@ class trainer(object):
             target_masks_list = target_masks_list.to(self.device)
 
             self.optimizer.zero_grad()
-            output = self.model(q_list, a_list, l_list, d_list)
+            output = self.model(q_list, a_list, l_list, d_list)  # predicted student performance
 
-            label = torch.masked_select(target_answers_list[:, 2:], target_masks_list[:, 2:])
+            label = torch.masked_select(target_answers_list[:, 2:], target_masks_list[:, 2:])  # real student performance
 
-            output = torch.masked_select(output, target_masks_list[:, 2:])
+            output = torch.masked_select(output, target_masks_list[:, 2:]) # masked attempt of non-assessed activities
             loss = self.criterion(output.float(), label.float())
 
             self.train_loss += loss.item()
             train_elements += target_masks_list[:, 2:].int().sum()
             loss.backward()  # compute the gradient
 
-            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm)
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.config.max_grad_norm) # clip gradient to
+            # avoid gradient vanishing or exploding
             self.optimizer.step()  # update the weight
             # self.scheduler.step()  # for CycleLR Scheduler or MultiStepLR
             self.current_iteration += 1
@@ -178,7 +194,8 @@ class trainer(object):
                 test_loss = test_loss/ test_elements
                 print("Test Loss: {:.6f}".format(test_loss))
                 self.test_loss_list.append(test_loss)
-        self.track_best(true_labels, pred_labels)
+        self.track_best(true_labels, pred_labels)  # calculate the test evaluation metric and check whether the current
+        # test metric is the best, save learned model if it is the best
 
 
 
@@ -199,16 +216,16 @@ class trainer(object):
                 self.best_val_perf = perf
                 self.best_train_loss = self.train_loss.item()
                 self.best_epoch = self.current_epoch
-                # torch.save(self.model.state_dict(),
-                #            'saved_model/{}/{}/sl_{}_eq_{}_ea_{}_el_{}_h_{}_fold_{}.pkl'.format(self.config.data_name,
-                #                                                                                self.config.model_name,
-                #                                                                                self.config.max_seq_len,
-                #                                                                                self.config.embedding_size_q,
-                #                                                                                self.config.embedding_size_a,
-                #                                                                                self.config.embedding_size_l,
-                #                                                                                self.config.hidden_size,
-                #                                                                                self.config.fold))
-            # 
+                torch.save(self.model.state_dict(),
+                           'saved_model/{}/{}/sl_{}_eq_{}_ea_{}_el_{}_h_{}_fold_{}.pkl'.format(self.config.data_name,
+                                                                                               self.config.model_name,
+                                                                                               self.config.max_seq_len,
+                                                                                               self.config.embedding_size_q,
+                                                                                               self.config.embedding_size_a,
+                                                                                               self.config.embedding_size_l,
+                                                                                               self.config.hidden_size,
+                                                                                               self.config.fold))
+
             self.test_rmse_list.append(perf)
         elif self.metric == "auc":
             perf = metrics.roc_auc_score(self.true_labels, self.pred_labels)
@@ -222,15 +239,15 @@ class trainer(object):
                 self.best_val_perf = perf
                 self.best_train_loss = self.train_loss.item()
                 self.best_epoch = self.current_epoch
-                # torch.save(self.model.state_dict(),
-                #            'saved_model/{}/{}/sl_{}_eq_{}_ea_{}_el_{}_h_{}_fold_{}.pkl'.format(self.config.data_name,
-                #                                                                           self.config.model_name,
-                #                                                                           self.config.max_seq_len,
-                #                                                                           self.config.embedding_size_q,
-                #                                                                           self.config.embedding_size_a,
-                #                                                                           self.config.embedding_size_l,
-                #                                                                           self.config.hidden_size,
-                #                                                                           self.config.fold))
+                torch.save(self.model.state_dict(),
+                           'saved_model/{}/{}/sl_{}_eq_{}_ea_{}_el_{}_h_{}_fold_{}.pkl'.format(self.config.data_name,
+                                                                                          self.config.model_name,
+                                                                                          self.config.max_seq_len,
+                                                                                          self.config.embedding_size_q,
+                                                                                          self.config.embedding_size_a,
+                                                                                          self.config.embedding_size_l,
+                                                                                          self.config.hidden_size,
+                                                                                          self.config.fold))
 
             self.test_roc_auc_list.append(perf)
             self.test_pr_auc_list.append(pr_auc)

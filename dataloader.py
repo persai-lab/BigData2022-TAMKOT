@@ -30,6 +30,7 @@ class TAMKOT_DataLoader:
 
         self.generate_train_test_data(data)
 
+        # define the data format for different perfromance data
         if self.metric == 'rmse':
             self.train_data = TensorDataset(torch.Tensor(self.train_data_q).long(),
                                             torch.Tensor(self.train_data_a).float(),
@@ -61,12 +62,17 @@ class TAMKOT_DataLoader:
                                             torch.Tensor(self.test_target_masks).bool(),
                                            torch.Tensor(self.test_target_masks_l).bool())
 
+        # create batched data
         self.train_loader = DataLoader(self.train_data, batch_size=self.batch_size)
 
         self.test_loader = DataLoader(self.test_data, batch_size=self.test_data_a.shape[0])
 
 
     def generate_train_test_data(self, data):
+        """
+        read or process data for training and testing
+        """
+
         q_records = data["traindata"]["q_data"]
         a_records = data["traindata"]["a_data"]
         l_records = data["traindata"]["l_data"]
@@ -118,7 +124,11 @@ class TAMKOT_DataLoader:
     def TAMKOT_ExtDataset(self, q_records, a_records, l_records, d_records,
                                            max_seq_len,
                                            stride):
-
+        """
+        transform the data into feasible input of model,
+        truncate the seq. if it is too long and
+        pad the seq. with 0s if it is too short
+        """
 
         q_data = []
         a_data = []
@@ -129,6 +139,12 @@ class TAMKOT_DataLoader:
             a_list = a_records[index]
             l_list = l_records[index]
             d_list = d_records[index]
+
+            # if seq length is less than max_seq_len, the windowed will pad it with fillvalue
+            # the reason for inserting two padding attempts with 0 and setting stride = stride - 2 is to make sure the
+            # first activity of each sequence is included in training and testing, and also for each sequence's first
+            # activity there is an activity zero to be t - 1 attempt.
+
             q_list.insert(0, 0)
             a_list.insert(0, 2)
             l_list.insert(0, 0)
