@@ -60,7 +60,7 @@ def ednet():
         "hidden_size": 16,  # hidden state size
 
         "init_std": 0.2,
-        "max_grad_norm": 10,
+        "max_grad_norm": 5,
 
         "optimizer": 'adam',
         "epsilon": 0.1,
